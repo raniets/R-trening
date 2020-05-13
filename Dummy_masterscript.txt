@@ -1,0 +1,2 @@
+Denne filen skal liksom være et script som funker - en master.
+Jeg prøver å opprette den i Notepad++ og lagre på \R-trening, og deretter få den inn som dummy masterscript i Git.
