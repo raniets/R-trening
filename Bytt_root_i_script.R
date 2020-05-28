@@ -14,10 +14,15 @@
 
 # Første versjon: Tar bare filene i én katalog, som må skrives inn i scriptet.
 
-# SVAKHET: MÅ IKKE KJØRES TO GANGER.
-# Scriptfilene kopieres til OLD uten noen sjekk, så ved andre gangs kjøring ville de endrede paths 
+# Andre commit: Sjekker om backupfilen finnes fra før. I så fall hopper over behandling av filen,
+# for å unngå at ved andre gangs kjøring ville de endrede paths 
 # overskrive originalscript-backupen med de nåværende paths.
-# Burde ha en sjekk på at backupfilene IKKE eksisterer FØR copy-kommandoen.
+
+# FØR SKARP KJØRING: 
+# Sjekk logikken med \OLD-kopi. 
+# Kan det ligge script med samme navn i OLD, som dermed blir overskrevet? 
+# Bør jeg for sikkerhets skyld bruke et annet katalognavn, som er eksplisitt for dette?
+    
 
     # Basics:
     # \  er escape-tegn, så den må skrives to ganger for å escape seg selv.
@@ -40,29 +45,35 @@ setwd(katalog)
 filliste <- list.files(pattern = "*.do$")        # Dollar er "slutten", for å utelukke ".docx"
 
 # Opprett backupkatalog
-old <- file.path(katalog, "OLD")                # Warning når katalogen eksisterer fra før.
-dir.create(old)
+dir.create(file.path(katalog, "OLD"))            # Warning når katalogen eksisterer fra før.
 
-# 1.Bygg opp en kommandostring som kopierer originalfilen til backupkatalog, og kjør den som shell.
-# 2.Les inn originalfilen og bytt ut gammel root med ny.
-# 3.Lagre og erstatt originalfilen.
+# 1.Sjekk om backupfilen finnes fra før, i så fall stopp - ikke overskriv den.
+# 2.Bygg opp en kommandostring som kopierer originalfilen til backupkatalog, og kjør den som shell.
+# 3.Les inn originalfilen og bytt ut gammel root med ny.
+# 4.Lagre og erstatt originalfilen.
 for(fil in filliste) {
-    kommando <- paste("copy ", fil, " .\\OLD\\", fil, sep = "")    
-    shell(kommando, translate = TRUE)               # translate snur katalogskilletegn riktig.
-    
-    # Sjekk at kopieringen gikk bra før resten kjøres. 
-    if (file.exists(paste(".\\OLD\\", fil, sep = ""))) {
-        print(fil)
-        # Lese inn: Dette funker - men paths får doble \\ . 'tekst' er en data.frame.
-        tekst <- read.table(fil, header = FALSE, sep = "£", quote = "", blank.lines.skip = FALSE, 
-                            comment.char = "", allowEscapes = FALSE, stringsAsFactors = FALSE)
+    if (!file.exists(paste(".\\OLD\\", fil, sep = ""))) { 
         
-        # selve tekstsubstitusjonen: Husk å oppgi variabelnavn!
-        byttet <- gsub(oldroot, newroot, tekst$V1, fixed = TRUE)    # fixed: bokstavelig match, ikke regex.
-        uttekst <- as.data.frame(byttet, stringsAsFactors = FALSE)
-
-        # og lagre til fil - dette blir riktig (single \) når det var doble inne i "tekst".
-        # Originalfilen blir overskrevet.
-        write.table(uttekst, file = fil, quote = FALSE, row.names = FALSE, col.names = FALSE)
-    }
-}
+        kommando <- paste("copy ", fil, " .\\OLD\\", fil, sep = "")    
+        shell(kommando, translate = TRUE)               # translate snur katalogskilletegn riktig.
+    
+        # Sjekk at kopieringen gikk bra før resten kjøres. 
+        if (file.exists(paste(".\\OLD\\", fil, sep = ""))) {
+            print(paste("Behandler: ", fil))
+            # Lese inn: Dette funker. 'tekst' er en data.frame.
+            # I konsollen vises paths i dataene med doble \\ , men i View() vises de som originalstringen...
+            tekst <- read.table(fil, header = FALSE, sep = "£", quote = "", blank.lines.skip = FALSE, 
+                                comment.char = "", allowEscapes = FALSE, stringsAsFactors = FALSE)
+            
+            # selve tekstsubstitusjonen: Husk å oppgi variabelnavn!
+            byttet <- gsub(oldroot, newroot, tekst$V1, fixed = TRUE)    # fixed: bokstavelig match, ikke regex.
+            uttekst <- as.data.frame(byttet, stringsAsFactors = FALSE)
+    
+            # og lagre til fil - dette blir riktig (single \) når det var doble inne i "tekst".
+            # Originalfilen blir overskrevet.
+            write.table(uttekst, file = fil, quote = FALSE, row.names = FALSE, col.names = FALSE)
+            
+        } # end -if file.exists, kopieringen gikk bra-
+        
+    } else { print(paste("Backupfil for ", fil, " finnes fra før. Hopper over filen.", sep = "")) }
+} # end -for fil in filliste-
